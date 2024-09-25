@@ -1,4 +1,27 @@
 services:
+  apm:
+    image: docker.elastic.co/apm/apm-server:7.17.24
+    ports:
+      - 8200:8200
+    depends_on:
+      elastic_search:
+        condition: service_healthy
+      kibana:
+        condition: service_healthy
+    command: >
+       apm-server -e
+         -E apm-server.rum.enabled=true
+         -E setup.kibana.host=kibana:5601
+         -E setup.template.settings.index.number_of_replicas=0
+         -E apm-server.kibana.enabled=true
+         -E apm-server.kibana.host=kibana:5601
+         -E output.elasticsearch.hosts=["elastic_search:9200"]
+
+    healthcheck:
+      interval: 10s
+      retries: 12
+      test: curl --write-out 'HTTP %{http_code}' --fail --silent --output /dev/null http://localhost:8200/
+
   elastic_search:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
     ports:
@@ -13,6 +36,24 @@ services:
       memlock:
         soft: -1
         hard: -1
+    healthcheck:
+      interval: 20s
+      retries: 10
+      test: curl -s http://localhost:9200/_cluster/health | grep -vq '"status":"red"'
+
+  postgres:
+    image: postgres:16.4
+    environment:
+      POSTGRES_DB: ${PGDATABASE}
+      POSTGRES_USER: ${PGUSER}
+      POSTGRES_PASSWORD: ${PGPASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d ${PGDATABASE} -U ${PGUSER}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - 5432:5432
 
   kibana:
     depends_on:
@@ -25,31 +66,38 @@ services:
       - ELASTICSEARCH_HOSTS=http://elastic_search:9200
       - ELASTICSEARCH_USERNAME=kibana_system
       - ELASTICSEARCH_PASSWORD=kibana_system
-
-  prometheus:
-    image: prom/prometheus
-    container_name: prometheus
-    ports:
-      - 9090:9090
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    healthcheck:
+      interval: 10s
+      retries: 20
+      test: curl --write-out 'HTTP %{http_code}' --fail --silent --output /dev/null http://localhost:5601/api/status
   
   vai-tomano:
     build: .
     ports:
       - 3002:3002
+    depends_on:
+      apm:
+        condition: service_healthy
 
-  grafana:
-    image: grafana/grafana-enterprise
-    container_name: grafana
-    ports:
-      - 3001:3000
+  # prometheus:
+  #   image: prom/prometheus
+  #   container_name: prometheus
+  #   ports:
+  #     - 9090:9090
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+  # grafana:
+  #   image: grafana/grafana-enterprise
+  #   container_name: grafana
+  #   ports:
+  #     - 3001:3000
   
-  locust:
-    image: locustio/locust
-    container_name: locust
-    volumes:
-      - ./:/mnt/locust
-    ports:
-      - 8089:8089
-    command: ['-f', '/mnt/locust/locustfile.py']
+  # locust:
+  #   image: locustio/locust
+  #   container_name: locust
+  #   volumes:
+  #     - ./:/mnt/locust
+  #   ports:
+  #     - 8089:8089
+  #   command: ['-f', '/mnt/locust/locustfile.py']
