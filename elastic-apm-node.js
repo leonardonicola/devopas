@@ -1,8 +1,9 @@
-module.exports = {
+/** @type { import("elastic-apm-node").AgentConfigOptions} */
+const config = {
   serviceName: "apm",
-
-  // Set custom APM Server URL (default: http://127.0.0.1:8200)
   serverUrl: "http://apm:8200",
-
+  logLevel: "trace",
   usePathAsTransactionName: true,
 };
+
+module.exports = config;

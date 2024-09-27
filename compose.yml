@@ -16,7 +16,6 @@ services:
          -E apm-server.kibana.enabled=true
          -E apm-server.kibana.host=kibana:5601
          -E output.elasticsearch.hosts=["elastic_search:9200"]
-
     healthcheck:
       interval: 10s
       retries: 12
@@ -75,6 +74,8 @@ services:
     build: .
     ports:
       - 3002:3002
+    env_file:
+      - .env
     depends_on:
       apm:
         condition: service_healthy
@@ -101,3 +102,14 @@ services:
   #   ports:
   #     - 8089:8089
   #   command: ['-f', '/mnt/locust/locustfile.py']
+  localstack:
+    container_name: local-stack
+    image: localstack/localstack
+    ports:
+      - 4566:4566            # LocalStack Gateway
+    environment:
+      # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
+      - SERVICES=s3
+      - DEBUG=${DEBUG:-0}
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
