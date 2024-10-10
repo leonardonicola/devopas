@@ -29,13 +29,13 @@ const server = fastify({
 
 const start = async () => {
   try {
-    await server.register(metricsPlugin, {
+    server.register(metricsPlugin, {
       endpoint: "/metrics",
     });
+    server.register(fastifyMultipart);
     server.register(autoLoad, {
       dir: join(__dirname, "routes"),
     });
-    server.register(fastifyMultipart);
 
     const command = new CreateBucketCommand({
       Bucket: process.env.S3_BUCKET_NAME,
